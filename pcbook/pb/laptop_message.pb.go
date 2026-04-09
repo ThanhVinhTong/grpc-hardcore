@@ -221,7 +221,7 @@ const file_laptop_message_proto_rawDesc = "" +
 	"\tprice_usd\x18\f \x01(\x01R\bpriceUsd\x12!\n" +
 	"\frelease_year\x18\r \x01(\rR\vreleaseYear\x127\n" +
 	"\tupdate_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\bupdateAtB\b\n" +
-	"\x06weightB\vZ\tpcbook/pbb\x06proto3"
+	"\x06weightB2Z0github.com/ThanhVinhTong/grpc-hardcore/pcbook/pbb\x06proto3"
 
 var (
 	file_laptop_message_proto_rawDescOnce sync.Once

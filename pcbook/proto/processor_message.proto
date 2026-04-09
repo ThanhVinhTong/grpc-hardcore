@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package pcbook;
 
-option go_package = "pcbook/pb";
+option go_package = "github.com/ThanhVinhTong/grpc-hardcore/pcbook/pb";
 
 import "memory_message.proto";
 

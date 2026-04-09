@@ -1,0 +1,16 @@
+run:
+  # Skip the entire generated protobuf folder
+  skip-dirs:
+    - pb
+
+  # Skip any file that looks generated
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.pb\\.go$"
+
+issues:
+  exclude-rules:
+    # Silence everything inside pb/ folder
+    - path: "pb/.*\\.go"
+      linters:
+        - all
