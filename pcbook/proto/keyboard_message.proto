@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package pcbook;
+
+option go_package = "pcbook/pb";
+
+message Keyboard {
+    enum Layout {
+        UNKNOWN = 0;
+        QWERTY = 1;
+        AZERTY = 2;
+        QWERTZ = 3;
+    }
+
+    Layout layout = 1;
+    bool has_backlit = 2;
+}

@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package pcbook;
+
+option go_package = "pcbook/pb";
+
+import "memory_message.proto";
+
+message CPU {
+    // Brand of the CPU
+    string brand = 1;
+    // Name of the CPU
+    string name = 2;
+    // Number of cores
+    uint32 num_cores = 3;
+    // Number of threads
+    uint32 num_threads = 4;
+    // Minimum clock speed in GHz
+    double min_ghz = 5;
+    // Maximum clock speed in GHz
+    double max_ghz = 6;
+}
+
+message GPU {
+    // Brand of the GPU
+    string brand = 1;
+    // Name of the GPU
+    string name = 2;
+    // Minimum clock speed in GHz
+    double min_ghz = 3;
+    // Maximum clock speed in GHz
+    double max_ghz = 4;
+    // Memory
+    Memory memory = 5;
+}
