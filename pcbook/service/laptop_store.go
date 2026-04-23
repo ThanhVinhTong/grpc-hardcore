@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"errors"
+	"log"
 	"pcbook/pb"
 	"pcbook/util"
 	"sync"
@@ -20,6 +22,8 @@ type LaptopStore interface {
 	Save(laptop *pb.Laptop) error
 	// Get returns the laptop with the given ID.
 	Get(id string) (*pb.Laptop, error)
+	// Search returns a list of laptops that match the given filter.
+	Search(ctx context.Context, filter *pb.Filter, found func(*pb.Laptop) error) error
 }
 
 // InMemoryLaptopStore is a thread-safe implementation of LaptopStore.
@@ -63,4 +67,77 @@ func (store *InMemoryLaptopStore) Get(id string) (*pb.Laptop, error) {
 	}
 
 	return util.DeepCopyLaptop(laptop), nil
+}
+
+// Search searches for laptops with filter, returns one by one via the found function
+func (store *InMemoryLaptopStore) Search(
+	ctx context.Context,
+	filter *pb.Filter,
+	found func(laptop *pb.Laptop) error,
+) error {
+	store.mutex.RLock()
+	defer store.mutex.RUnlock()
+
+	for _, laptop := range store.laptops {
+		// heavy duties simulation
+		// time.Sleep(time.Second)
+		// log.Printf("laptop with id %s said ehehehe", laptop.GetId())
+
+		if ctx.Err() == context.Canceled || ctx.Err() == context.DeadlineExceeded {
+			log.Println("context cancelled or deadline exceeded")
+			return errors.New("context is cancelled")
+		}
+
+		if isQualified(filter, laptop) {
+			laptop_copy := util.DeepCopyLaptop(laptop)
+
+			err := found(laptop_copy)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func isQualified(filter *pb.Filter, laptop *pb.Laptop) bool {
+	if laptop.GetPriceUsd() > filter.GetMaxPriceUsd() {
+		return false
+	}
+
+	if laptop.GetCpu().GetNumCores() < filter.GetMinCpuCores() {
+		return false
+	}
+
+	if laptop.GetCpu().GetMinGhz() < filter.GetMinCpuGhz() {
+		return false
+	}
+
+	if toBit(laptop.GetRam()) < toBit(filter.GetMinRam()) {
+		return false
+	}
+
+	return true
+}
+
+func toBit(memory *pb.Memory) uint64 {
+	value := memory.GetValue()
+
+	switch memory.GetUnit() {
+	case pb.Memory_BIT:
+		return value
+	case pb.Memory_BYTE:
+		return value << 3
+	case pb.Memory_KILOBYTE:
+		return value << 13
+	case pb.Memory_MEGABYTE:
+		return value << 23
+	case pb.Memory_GIGABYTE:
+		return value << 33
+	case pb.Memory_TERABYTE:
+		return value << 43
+	default:
+		return 0
+	}
 }
