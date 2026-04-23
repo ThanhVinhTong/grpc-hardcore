@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"pcbook/pb"
 	"pcbook/sample"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc"
@@ -42,6 +43,37 @@ func testUploadImage(laptopClient pb.LaptopServiceClient) {
 	laptop := sample.NewLaptop()
 	createLaptop(laptopClient, laptop)
 	uploadImage(laptopClient, laptop.GetId(), "tmp/laptop.jpg")
+}
+
+func testRateLaptop(laptopClient pb.LaptopServiceClient) {
+	n := 3
+
+	laptopIDs := make([]string, n)
+	for i := 0; i < n; i++ {
+		laptop := sample.NewLaptop()
+		laptopIDs[i] = laptop.GetId()
+		createLaptop(laptopClient, laptop)
+	}
+
+	scores := make([]float64, n)
+	for {
+		fmt.Printf("rate laptop (y/n)? ")
+		var answer string
+		fmt.Scan(&answer)
+
+		if strings.ToLower(answer) != "y" {
+			break
+		}
+
+		for i := 0; i < n; i++ {
+			scores[i] = sample.RandomLaptopScore()
+		}
+
+		err := rateLaptop(laptopClient, laptopIDs, scores)
+		if err != nil {
+			log.Fatal("cannot rate laptop: ", err)
+		}
+	}
 }
 
 func createLaptop(laptopClient pb.LaptopServiceClient, laptop *pb.Laptop) {
@@ -155,6 +187,56 @@ func uploadImage(laptopClient pb.LaptopServiceClient, laptopID string, imagePath
 	log.Printf("image uploaded with id: %s, size: %d", res.GetImageId(), res.GetSize())
 }
 
+func rateLaptop(laptopClient pb.LaptopServiceClient, laptopIDs []string, scores []float64) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	stream, err := laptopClient.RateLaptop(ctx)
+	if err != nil {
+		return fmt.Errorf("cannot rate laptop: %v", err)
+	}
+
+	waitResponse := make(chan error)
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				log.Println("no more response")
+				waitResponse <- nil
+				return
+			}
+			if err != nil {
+				waitResponse <- fmt.Errorf("cannot receive response: %v", err)
+				return
+			}
+
+			log.Printf("rated laptop with id: %s, score: %.2f", res.GetLaptopId(), res.GetAverageScore())
+		}
+	}()
+
+	for i, laptopID := range laptopIDs {
+		req := &pb.RateLaptopRequest{
+			LaptopId: laptopID,
+			Score:    scores[i],
+		}
+
+		err := stream.Send(req)
+		if err != nil {
+			return fmt.Errorf("cannot send stream request: %v - %v", err, stream.RecvMsg(nil))
+		}
+
+		log.Printf("sent request: laptop %s, score %.2f", laptopID, scores[i])
+	}
+
+	err = stream.CloseSend()
+	if err != nil {
+		return fmt.Errorf("cannot close stream: %v", err)
+	}
+
+	err = <-waitResponse
+	return err
+}
+
 func main() {
 	serverAddress := flag.String("addr", "", "the server address")
 	flag.Parse()
@@ -168,5 +250,5 @@ func main() {
 	defer conn.Close()
 
 	laptopClient := pb.NewLaptopServiceClient(conn)
-	testUploadImage(laptopClient)
+	testRateLaptop(laptopClient)
 }

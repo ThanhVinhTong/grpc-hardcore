@@ -20,13 +20,15 @@ type LaptopServer struct {
 	pb.UnimplementedLaptopServiceServer
 	laptopStore LaptopStore
 	imageStore  ImageStore
+	ratingStore RatingStore
 }
 
 // NewLaptopServer creates a new LaptopServer.
-func NewLaptopServer(laptopStore LaptopStore, imageStore ImageStore) *LaptopServer {
+func NewLaptopServer(laptopStore LaptopStore, imageStore ImageStore, ratingStore RatingStore) *LaptopServer {
 	return &LaptopServer{
 		laptopStore: laptopStore,
 		imageStore:  imageStore,
+		ratingStore: ratingStore,
 	}
 }
 
@@ -174,6 +176,57 @@ func (server *LaptopServer) UploadImage(
 	}
 
 	log.Printf("image saved with id: %s", imageID)
+	return nil
+}
+
+func (server *LaptopServer) RateLaptop(
+	stream pb.LaptopService_RateLaptopServer,
+) error {
+	for {
+		err := contextError(stream.Context())
+		if err != nil {
+			return logError(err)
+		}
+
+		req, err := stream.Recv()
+		if err == io.EOF {
+			log.Print("no more data")
+			break
+		}
+		if err != nil {
+			return logError(status.Errorf(codes.Unknown, "cannot receive rate-laptop request: %v", err))
+		}
+
+		laptopID := req.GetLaptopId()
+		score := req.GetScore()
+		log.Printf("received a rate-laptop request for laptop %s with score %.2f", laptopID, score)
+
+		found, err := server.laptopStore.Get(laptopID)
+		if err != nil {
+			return logError(status.Errorf(codes.Internal, "cannot find laptop: %v", err))
+		}
+		if found == nil {
+			return logError(status.Errorf(codes.NotFound, "laptopID %s is not found", laptopID))
+		}
+
+		rating, err := server.ratingStore.Add(stream.Context(), laptopID, score)
+		if err != nil {
+			return logError(status.Errorf(codes.Internal, "cannot add rating: %v", err))
+		}
+
+		res := &pb.RateLaptopResponse{
+			LaptopId:     laptopID,
+			RatedCount:   rating.RatedCount,
+			AverageScore: rating.Sum / float64(rating.RatedCount),
+		}
+
+		err = stream.Send(res)
+		if err != nil {
+			return logError(status.Errorf(codes.Unknown, "cannot send response: %v", err))
+		}
+
+		log.Printf("rating saved with id: %s", laptopID)
+	}
 	return nil
 }
 
