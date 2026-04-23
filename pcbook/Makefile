@@ -11,7 +11,13 @@ server:
 client:
 	go run cmd/client/main.go -addr=0.0.0.0:8080
 
+login_admin:
+	grpcurl -plaintext -d "{\"username\": \"admin\", \"password\": \"admin\"}" localhost:8080 pcbook.AuthService/Login
+
+login_user:
+	grpcurl -plaintext -d "{\"username\": \"user\", \"password\": \"user\"}" localhost:8080 pcbook.AuthService/Login
+
 test:
 	go test -cover ./...
 
-.PHONY: protoc
+.PHONY: protoc server client login_admin login_user test
